@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CotizaPro — Generación y Gestión de Cotizaciones</title>
+  <meta name="description" content="Sistema profesional de cotizaciones para empresas de productos, equipos e instalaciones.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ============ SIDEBAR ============ -->
+  <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo-icon">📋</div>
+      <div>
+        <h1>CotizaPro</h1>
+        <small>Gestión de Cotizaciones</small>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">Principal</div>
+      <button class="nav-item active" data-view="dashboard" onclick="navegar('dashboard')">
+        <span class="nav-icon">📊</span> Dashboard
+      </button>
+
+      <div class="nav-section">Operaciones</div>
+      <button class="nav-item" data-view="cotizaciones" onclick="navegar('cotizaciones')">
+        <span class="nav-icon">📄</span> Cotizaciones
+        <span id="navBadgeCotizaciones" class="nav-badge" hidden></span>
+      </button>
+      <button class="nav-item" data-view="clientes" onclick="navegar('clientes')">
+        <span class="nav-icon">👥</span> Clientes
+      </button>
+      <button class="nav-item" data-view="productos" onclick="navegar('productos')">
+        <span class="nav-icon">📦</span> Productos y Servicios
+      </button>
+
+      <div class="nav-section">Sistema</div>
+      <button class="nav-item" data-view="configuracion" onclick="navegar('configuracion')">
+        <span class="nav-icon">⚙️</span> Configuración
+      </button>
+    </nav>
+    <div class="sidebar-footer">CotizaPro v1.0 · Datos locales</div>
+  </aside>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <div class="main-content">
+    <header class="topbar">
+      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+      <h2 id="topbarTitle" class="topbar-title">Dashboard</h2>
+      <div class="topbar-actions" id="topbarActions"></div>
+    </header>
+
+    <div class="content">
+      <!-- ===== DASHBOARD ===== -->
+      <section id="view-dashboard" class="view">
+        <div id="dashboardStats" class="stats-grid"></div>
+        <div class="panel">
+          <div class="panel-header">
+            <h3>📄 Cotizaciones Recientes</h3>
+            <button class="btn btn-sm btn-primary" onclick="navegar('cotizaciones')">Ver todas →</button>
+          </div>
+          <div id="recentQuotes" class="panel-body"></div>
+        </div>
+      </section>
+
+      <!-- ===== CLIENTES ===== -->
+      <section id="view-clientes" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">👥 Gestión de Clientes</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Administra tu base de datos de clientes</h3>
+          </div>
+          <button class="btn btn-primary" onclick="abrirModalCliente()">➕ Nuevo Cliente</button>
+        </div>
+        <div class="table-container">
+          <div class="table-header">
+            <input id="busquedaClientes" type="search" placeholder="Buscar por nombre, RTN, teléfono, email..." oninput="renderClientes()">
+            <select id="filtroClientes" onchange="renderClientes()">
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+          <div id="tablaClientes"></div>
+        </div>
+      </section>
+
+      <!-- ===== PRODUCTOS ===== -->
+      <section id="view-productos" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">📦 Catálogo de Productos y Servicios</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Gestiona tu catálogo completo</h3>
+          </div>
+          <button class="btn btn-primary" onclick="abrirModalProducto()">➕ Nuevo Producto</button>
+        </div>
+        <div class="table-container">
+          <div class="table-header">
+            <input id="busquedaProductos" type="search" placeholder="Buscar por código, nombre, marca, categoría..." oninput="renderProductos()">
+            <select id="filtroCategoria" onchange="renderProductos()">
+              <option value="todas">Todas las categorías</option>
+            </select>
+          </div>
+          <div id="tablaProductos"></div>
+        </div>
+      </section>
+
+      <!-- ===== COTIZACIONES (lista) ===== -->
+      <section id="view-cotizaciones" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">📄 Cotizaciones</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Historial y gestión de cotizaciones</h3>
+          </div>
+          <button class="btn btn-primary" onclick="nuevaCotizacion()">➕ Nueva Cotización</button>
+        </div>
+        <div class="table-container">
+          <div class="table-header">
+            <input id="busquedaCotizaciones" type="search" placeholder="Buscar por número, cliente, vendedor..." oninput="renderCotizaciones()">
+            <select id="filtroEstadoCotizacion" onchange="renderCotizaciones()">
+              <option value="todos">Todos los estados</option>
+              <option value="borrador">📝 Borrador</option>
+              <option value="enviada">📤 Enviada</option>
+              <option value="aprobada">✅ Aprobada</option>
+              <option value="rechazada">❌ Rechazada</option>
+              <option value="vencida">⏰ Vencida</option>
+            </select>
+            <input id="filtroFechaCotizacion" type="date" onchange="renderCotizaciones()" title="Filtrar por fecha">
+          </div>
+          <div id="tablaCotizaciones"></div>
+        </div>
+      </section>
+
+      <!-- ===== FORMULARIO COTIZACIÓN ===== -->
+      <section id="view-form-cotizacion" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 id="formCotizacionTitle" style="color:var(--text);font-size:18px;font-weight:700;">📄 Nueva Cotización</h2>
+          </div>
+          <div class="btn-group">
+            <button class="btn" onclick="navegar('cotizaciones')">← Volver</button>
+          </div>
+        </div>
+
+        <!-- Datos generales -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-header"><h3>Datos Generales</h3></div>
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Número de Cotización</label>
+                <input id="fCotNumero" readonly style="background:#f1f5f9;font-weight:600">
+              </div>
+              <div class="form-group">
+                <label>Fecha de Creación</label>
+                <input id="fCotFecha" type="date">
+              </div>
+              <div class="form-group">
+                <label>Fecha de Vencimiento</label>
+                <input id="fCotVencimiento" type="date">
+              </div>
+              <div class="form-group">
+                <label>Vendedor / Responsable</label>
+                <input id="fCotVendedor" placeholder="Nombre del vendedor">
+              </div>
+              <div class="form-group">
+                <label>Estado</label>
+                <select id="fCotEstado">
+                  <option value="borrador">📝 Borrador</option>
+                  <option value="enviada">📤 Enviada</option>
+                  <option value="aprobada">✅ Aprobada</option>
+                  <option value="rechazada">❌ Rechazada</option>
+                  <option value="vencida">⏰ Vencida</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Cliente</label>
+                <div style="display:flex;gap:8px">
+                  <select id="fCotCliente" style="flex:1" onchange="onClienteChange()">
+                    <option value="">Seleccionar cliente...</option>
+                  </select>
+                  <button type="button" class="btn btn-sm" onclick="abrirModalCliente(true)" title="Registrar nuevo cliente">➕</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detalle de productos -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-header">
+            <h3>Productos y Servicios</h3>
+            <button class="btn btn-sm btn-primary" onclick="agregarDetalle()">➕ Agregar Producto</button>
+          </div>
+          <div class="panel-body" style="overflow-x:auto">
+            <table class="items-table" id="tablaDetalle">
+              <thead>
+                <tr>
+                  <th class="col-codigo">Código</th>
+                  <th class="col-desc">Descripción / Producto</th>
+                  <th class="col-cant">Cant.</th>
+                  <th class="col-precio">P. Unitario</th>
+                  <th class="col-descuento">Desc. %</th>
+                  <th class="col-subtotal">Subtotal</th>
+                  <th class="col-acciones"></th>
+                </tr>
+              </thead>
+              <tbody id="detalleBody"></tbody>
+            </table>
+            <div id="detalleVacio" class="empty-state" style="padding:30px">
+              <span class="empty-icon">📦</span>
+              <h3>Sin productos agregados</h3>
+              <p>Haz clic en "Agregar Producto" para comenzar</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Costos adicionales y totales -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-body">
+            <div class="totals-section">
+              <div class="totals-left">
+                <h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--text-secondary)">Costos Adicionales</h4>
+                <div class="form-grid" style="grid-template-columns:1fr 1fr">
+                  <div class="form-group">
+                    <label>Mano de Obra / Instalación (L.)</label>
+                    <input id="fCotManoObra" type="number" min="0" step="0.01" value="0" oninput="calcularTotales()">
+                  </div>
+                  <div class="form-group">
+                    <label>Transporte (L.)</label>
+                    <input id="fCotTransporte" type="number" min="0" step="0.01" value="0" oninput="calcularTotales()">
+                  </div>
+                  <div class="form-group">
+                    <label>Materiales Adicionales (L.)</label>
+                    <input id="fCotMateriales" type="number" min="0" step="0.01" value="0" oninput="calcularTotales()">
+                  </div>
+                  <div class="form-group">
+                    <label>Otros Costos (L.)</label>
+                    <input id="fCotOtros" type="number" min="0" step="0.01" value="0" oninput="calcularTotales()">
+                  </div>
+                </div>
+              </div>
+              <div class="totals-right">
+                <table class="totals-table">
+                  <tr><td>Subtotal:</td><td id="totSubtotal">L. 0.00</td></tr>
+                  <tr><td>Descuento:</td><td id="totDescuento">L. 0.00</td></tr>
+                  <tr><td>Impuesto (<span id="totImpPct">15</span>%):</td><td id="totImpuesto">L. 0.00</td></tr>
+                  <tr><td>Mano de Obra:</td><td id="totManoObra">L. 0.00</td></tr>
+                  <tr><td>Transporte:</td><td id="totTransporte">L. 0.00</td></tr>
+                  <tr><td>Materiales Adic.:</td><td id="totMateriales">L. 0.00</td></tr>
+                  <tr><td>Otros Costos:</td><td id="totOtros">L. 0.00</td></tr>
+                  <tr class="total-row"><td>TOTAL:</td><td id="totGeneral">L. 0.00</td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alcance del proyecto -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-header"><h3>📐 Alcance del Proyecto</h3></div>
+          <div class="panel-body">
+            <div class="form-group full-width">
+              <textarea id="fCotAlcance" rows="6" placeholder="Describe detalladamente el alcance del proyecto: trabajos, productos, instalaciones, servicios incluidos..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Condiciones y observaciones -->
+        <div class="panel" style="margin-bottom:20px">
+          <div class="panel-header"><h3>📋 Condiciones y Observaciones</h3></div>
+          <div class="panel-body">
+            <div class="form-group full-width">
+              <textarea id="fCotObservaciones" rows="5" placeholder="Condiciones de pago, tiempo de entrega, garantía, vigencia de la cotización..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botones de acción -->
+        <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:20px">
+          <button class="btn" onclick="navegar('cotizaciones')">Cancelar</button>
+          <button class="btn btn-primary btn-lg" onclick="guardarCotizacionForm()">💾 Guardar Cotización</button>
+        </div>
+      </section>
+
+      <!-- ===== CONFIGURACIÓN ===== -->
+      <section id="view-configuracion" class="view" hidden>
+        <div class="page-header">
+          <div>
+            <h2 style="color:var(--text);font-size:18px;font-weight:700;">⚙️ Configuración de Empresa</h2>
+            <h3 style="color:var(--text-secondary);font-size:14px;font-weight:400;">Personaliza los datos que aparecen en tus cotizaciones</h3>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-body">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nombre de la Empresa</label>
+                <input id="cfgNombre" placeholder="Ej: Instalaciones y Equipos S.A. de C.V.">
+              </div>
+              <div class="form-group">
+                <label>RTN / Identificación</label>
+                <input id="cfgRtn" placeholder="Ej: 0801-1990-12345">
+              </div>
+              <div class="form-group">
+                <label>Dirección</label>
+                <input id="cfgDireccion" placeholder="Ej: Blvd. Los Próceres, Tegucigalpa">
+              </div>
+              <div class="form-group">
+                <label>Teléfono</label>
+                <input id="cfgTelefono" placeholder="Ej: +504 2234-5678">
+              </div>
+              <div class="form-group">
+                <label>Email</label>
+                <input id="cfgEmail" type="email" placeholder="Ej: ventas@empresa.com">
+              </div>
+              <div class="form-group">
+                <label>Impuesto (%)</label>
+                <input id="cfgImpuesto" type="number" min="0" max="100" step="0.1" value="15">
+              </div>
+              <div class="form-group">
+                <label>Días de Vigencia (cotizaciones)</label>
+                <input id="cfgDiasVigencia" type="number" min="1" max="365" value="30">
+              </div>
+              <div class="form-group full-width">
+                <label>Logo de la Empresa</label>
+                <div class="logo-upload">
+                  <div id="cfgLogoPreview" class="logo-preview">
+                    <span class="placeholder">🏢</span>
+                  </div>
+                  <div>
+                    <input type="file" id="cfgLogoFile" accept="image/*" onchange="cargarLogo(event)" style="margin-bottom:8px">
+                    <br>
+                    <button class="btn btn-sm btn-danger" onclick="quitarLogo()">🗑 Quitar logo</button>
+                  </div>
+                </div>
+              </div>
+              <div class="form-group full-width">
+                <label>Observaciones por Defecto</label>
+                <textarea id="cfgObservaciones" rows="4" placeholder="Condiciones que se agregan por defecto a cada cotización nueva"></textarea>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+              <button class="btn btn-primary" onclick="guardarConfig()">💾 Guardar Configuración</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CLIENTE ============ -->
+  <div id="modalCliente" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalClienteTitle">👤 Nuevo Cliente</h3>
+        <button class="modal-close" onclick="cerrarModalCliente()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre o Razón Social *</label>
+            <input id="cliNombre" required placeholder="Ej: Empresa XYZ S.A. de C.V.">
+          </div>
+          <div class="form-group">
+            <label>RTN o Identificación</label>
+            <input id="cliRtn" placeholder="Ej: 0801-1990-12345">
+          </div>
+          <div class="form-group">
+            <label>Teléfono</label>
+            <input id="cliTelefono" placeholder="Ej: +504 2234-5678">
+          </div>
+          <div class="form-group">
+            <label>Correo Electrónico</label>
+            <input id="cliEmail" type="email" placeholder="Ej: cliente@empresa.com">
+          </div>
+          <div class="form-group">
+            <label>Dirección</label>
+            <input id="cliDireccion" placeholder="Dirección completa">
+          </div>
+          <div class="form-group">
+            <label>Persona de Contacto</label>
+            <input id="cliContacto" placeholder="Nombre del contacto">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarModalCliente()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarClienteForm()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: PRODUCTO ============ -->
+  <div id="modalProducto" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-header">
+        <h3 id="modalProductoTitle">📦 Nuevo Producto</h3>
+        <button class="modal-close" onclick="cerrarModalProducto()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Código *</label>
+            <input id="prodCodigo" placeholder="Ej: PROD-001">
+          </div>
+          <div class="form-group">
+            <label>Categoría *</label>
+            <input id="prodCategoria" list="listaCategoriasProd" placeholder="Ej: Equipos, Servicios, Materiales">
+            <datalist id="listaCategoriasProd"></datalist>
+          </div>
+          <div class="form-group full-width">
+            <label>Nombre del Producto o Servicio *</label>
+            <input id="prodNombre" placeholder="Nombre completo">
+          </div>
+          <div class="form-group">
+            <label>Marca</label>
+            <input id="prodMarca" placeholder="Ej: Samsung, Cisco, etc.">
+          </div>
+          <div class="form-group">
+            <label>Modelo</label>
+            <input id="prodModelo" placeholder="Ej: SM-A54, WS-C2960">
+          </div>
+          <div class="form-group full-width">
+            <label>Descripción</label>
+            <textarea id="prodDescripcion" rows="2" placeholder="Descripción detallada del producto o servicio"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Precio de Compra (L.)</label>
+            <input id="prodPrecioCompra" type="number" min="0" step="0.01" value="0">
+          </div>
+          <div class="form-group">
+            <label>Precio de Venta (L.)</label>
+            <input id="prodPrecioVenta" type="number" min="0" step="0.01" value="0">
+          </div>
+          <div class="form-group">
+            <label>Costo de Instalación (L.)</label>
+            <input id="prodCostoInstalacion" type="number" min="0" step="0.01" value="0">
+          </div>
+          <div class="form-group">
+            <label>Impuesto (%)</label>
+            <input id="prodImpuesto" type="number" min="0" max="100" step="0.1" value="15">
+          </div>
+          <div class="form-group">
+            <label>Estado</label>
+            <select id="prodEstado">
+              <option value="activo">🟢 Activo</option>
+              <option value="inactivo">🔴 Inactivo</option>
+              <option value="descontinuado">⚫ Descontinuado</option>
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label>Imagen (URL o descripción)</label>
+            <input id="prodImagen" placeholder="URL de imagen o referencia">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarModalProducto()">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarProductoForm()">💾 Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CONFIRMACIÓN ============ -->
+  <div id="modalConfirm" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3 id="confirmTitle">Confirmar</h3>
+        <button class="modal-close" onclick="cerrarConfirm()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMsg"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="cerrarConfirm()">Cancelar</button>
+        <button id="confirmBtn" class="btn btn-danger">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: SELECCIONAR PRODUCTO ============ -->
+  <div id="modalSeleccionarProducto" class="modal-overlay" hidden onclick="if(event.target===this)this.hidden=true">
+    <div class="modal" style="max-width:600px">
+      <div class="modal-header">
+        <h3>🔍 Seleccionar Producto</h3>
+        <button class="modal-close" onclick="cerrarSeleccionarProducto()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input id="busquedaProductoCot" type="search" placeholder="Buscar producto por nombre, código, marca..." oninput="renderSeleccionarProducto()" style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;margin-bottom:12px">
+        <div id="listaSeleccionarProducto" style="max-height:300px;overflow-y:auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST CONTAINER ============ -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ============ SCRIPTS ============ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+  <script src="db.js"></script>
+  <script src="pdf.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
