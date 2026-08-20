@@ -1,9 +1,12 @@
 /* ============================================================
-   CotizaPro — Capa de base de datos (IndexedDB)
+   CotizaPro — Capa de base de datos (Google Drive)
+   Almacena todos los datos como archivos JSON en Google Drive.
    ============================================================ */
 
-const DB_NAME = 'cotizapro-db';
-const DB_VERSION = 1;
+/* ---- Configuración ---- */
+const GOOGLE_CLIENT_ID = 'TU_CLIENT_ID_DE_GOOGLE_AQUI';
+const DRIVE_FOLDER_NAME = 'CotizaPro_Data';
+const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
 const STORES = {
   clientes: 'clientes',
@@ -13,100 +16,217 @@ const STORES = {
   configuracionEmpresa: 'configuracionEmpresa',
 };
 
-function abrirBD() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      // Clientes
-      if (!db.objectStoreNames.contains(STORES.clientes)) {
-        const cs = db.createObjectStore(STORES.clientes, { keyPath: 'id' });
-        cs.createIndex('nombre', 'nombre', { unique: false });
-        cs.createIndex('rtn', 'rtn', { unique: false });
-      }
-      // Productos
-      if (!db.objectStoreNames.contains(STORES.productos)) {
-        const ps = db.createObjectStore(STORES.productos, { keyPath: 'id' });
-        ps.createIndex('codigo', 'codigo', { unique: true });
-        ps.createIndex('categoria', 'categoria', { unique: false });
-        ps.createIndex('nombre', 'nombre', { unique: false });
-      }
-      // Cotizaciones
-      if (!db.objectStoreNames.contains(STORES.cotizaciones)) {
-        const ct = db.createObjectStore(STORES.cotizaciones, { keyPath: 'id' });
-        ct.createIndex('numero', 'numero', { unique: true });
-        ct.createIndex('clienteId', 'clienteId', { unique: false });
-        ct.createIndex('estado', 'estado', { unique: false });
-        ct.createIndex('fechaCreacion', 'fechaCreacion', { unique: false });
-      }
-      // Detalle cotización
-      if (!db.objectStoreNames.contains(STORES.detalleCotizacion)) {
-        const dc = db.createObjectStore(STORES.detalleCotizacion, { keyPath: 'id' });
-        dc.createIndex('cotizacionId', 'cotizacionId', { unique: false });
-      }
-      // Configuración empresa
-      if (!db.objectStoreNames.contains(STORES.configuracionEmpresa)) {
-        db.createObjectStore(STORES.configuracionEmpresa, { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+const FILE_NAMES = {
+  clientes: 'clientes.json',
+  productos: 'productos.json',
+  cotizaciones: 'cotizaciones.json',
+  detalleCotizacion: 'detalleCotizacion.json',
+  configuracionEmpresa: 'configuracion.json',
+};
+
+/* ---- Estado global ---- */
+let gAccessToken = null;
+let gFolderId = null;
+let gFileIds = {};
+let gDataCache = {};
+let gAuthenticated = false;
+let gReady = false;
+
+const API_BASE = 'https://www.googleapis.com/drive/v3';
+const UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
+
+/* ============================================================
+   AUTENTICACIÓN CON GOOGLE
+   ============================================================ */
+
+function cargarScriptGoogle() {
+  return new Promise((resolve) => {
+    if (window.google && window.google.accounts) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    s.onerror = () => resolve();
+    document.head.appendChild(s);
   });
 }
 
-/* ---- Operaciones CRUD genéricas ---- */
+async function iniciarSesion() {
+  await cargarScriptGoogle();
+  return new Promise((resolve, reject) => {
+    if (!window.google || !window.google.accounts) {
+      return reject(new Error('No se pudo cargar Google Identity Services. Verifica tu conexión a internet.'));
+    }
+    const tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPES,
+      callback: (resp) => {
+        gAccessToken = resp.access_token;
+        gAuthenticated = true;
+        resolve(resp);
+      },
+      error_callback: (err) => reject(err),
+    });
+    tokenClient.requestAccessToken();
+  });
+}
+
+function cerrarSesion() {
+  if (gAccessToken) {
+    try { google.accounts.oauth2.revoke(gAccessToken); } catch (e) {}
+    gAccessToken = null;
+    gAuthenticated = false;
+    gReady = false;
+    gFolderId = null;
+    gFileIds = {};
+    gDataCache = {};
+  }
+}
+
+function estaAutenticado() {
+  return gAuthenticated && !!gAccessToken;
+}
+
+/* ============================================================
+   OPERACIONES CON GOOGLE DRIVE API
+   ============================================================ */
+
+async function driveFetch(url, options = {}) {
+  const resp = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': 'Bearer ' + gAccessToken,
+      ...(options.headers || {}),
+    },
+  });
+  if (!resp.ok) {
+    const txt = await resp.text().catch(() => '');
+    throw new Error(`Error Drive API ${resp.status}: ${txt}`);
+  }
+  return resp.json();
+}
+
+async function buscarOCrearCarpeta(nombre) {
+  const q = `name='${nombre}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const r = await driveFetch(`${API_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  if (r.files && r.files.length > 0) return r.files[0].id;
+
+  const f = await driveFetch(`${API_BASE}/files`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: nombre, mimeType: 'application/vnd.google-apps.folder' }),
+  });
+  return f.id;
+}
+
+async function buscarArchivo(nombre, parentId) {
+  const q = `name='${nombre}' and '${parentId}' in parents and trashed=false`;
+  const r = await driveFetch(`${API_BASE}/files?q=${encodeURIComponent(q)}&fields=files(id,name)`);
+  return r.files && r.files[0] ? r.files[0].id : null;
+}
+
+async function leerArchivoContenido(fileId) {
+  const resp = await fetch(`${API_BASE}/files/${fileId}?alt=media`, {
+    headers: { 'Authorization': 'Bearer ' + gAccessToken },
+  });
+  const txt = await resp.text();
+  if (!txt || txt.trim() === '') return [];
+  try { return JSON.parse(txt); } catch { return []; }
+}
+
+async function escribirArchivoContenido(fileId, data) {
+  await fetch(`${UPLOAD_BASE}/files/${fileId}?uploadType=media`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer ' + gAccessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+}
+
+async function crearArchivo(nombre, parentId, data) {
+  const metadata = { name: nombre, parents: [parentId] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  const resp = await fetch(`${UPLOAD_BASE}/files?uploadType=multipart`, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + gAccessToken },
+    body: form,
+  });
+  return resp.json();
+}
+
+/* ============================================================
+   INICIALIZACIÓN DEL DRIVE
+   ============================================================ */
+
+async function inicializarDrive() {
+  if (!estaAutenticado()) throw new Error('No autenticado con Google');
+
+  gFolderId = await buscarOCrearCarpeta(DRIVE_FOLDER_NAME);
+
+  for (const [store, filename] of Object.entries(FILE_NAMES)) {
+    let fileId = await buscarArchivo(filename, gFolderId);
+    if (!fileId) {
+      const file = await crearArchivo(filename, gFolderId, []);
+      fileId = file.id;
+    }
+    gFileIds[store] = fileId;
+    gDataCache[store] = await leerArchivoContenido(fileId);
+  }
+
+  gReady = true;
+}
+
+async function asegurarListo() {
+  if (!gReady) await inicializarDrive();
+}
+
+/* ============================================================
+   OPERACIONES CRUD GENÉRICAS
+   ============================================================ */
 
 async function dbGetAll(storeName) {
-  const db = await abrirBD();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const req = tx.objectStore(storeName).getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  await asegurarListo();
+  return [...(gDataCache[storeName] || [])];
 }
 
 async function dbGet(storeName, id) {
-  const db = await abrirBD();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const req = tx.objectStore(storeName).get(id);
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
+  await asegurarListo();
+  return (gDataCache[storeName] || []).find(item => item.id === id) || null;
 }
 
 async function dbPut(storeName, data) {
-  const db = await abrirBD();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.objectStore(storeName).put(data);
-    tx.oncomplete = () => resolve(data);
-    tx.onerror = () => reject(tx.error);
-  });
+  await asegurarListo();
+  if (!gDataCache[storeName]) gDataCache[storeName] = [];
+
+  const idx = gDataCache[storeName].findIndex(item => item.id === data.id);
+  if (idx >= 0) {
+    gDataCache[storeName][idx] = data;
+  } else {
+    gDataCache[storeName].push(data);
+  }
+
+  await escribirArchivoContenido(gFileIds[storeName], gDataCache[storeName]);
+  return data;
 }
 
 async function dbDelete(storeName, id) {
-  const db = await abrirBD();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.objectStore(storeName).delete(id);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await asegurarListo();
+  gDataCache[storeName] = (gDataCache[storeName] || []).filter(item => item.id !== id);
+  await escribirArchivoContenido(gFileIds[storeName], gDataCache[storeName]);
 }
 
 async function dbClear(storeName) {
-  const db = await abrirBD();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
-    tx.objectStore(storeName).clear();
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  await asegurarListo();
+  gDataCache[storeName] = [];
+  await escribirArchivoContenido(gFileIds[storeName], []);
 }
 
-/* ---- Funciones específicas ---- */
+/* ============================================================
+   FUNCIONES AUXILIARES
+   ============================================================ */
 
 function generarId() {
   return crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -141,7 +261,9 @@ function formatNumber(n) {
   return new Intl.NumberFormat('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
 }
 
-/* ---- Generación de número de cotización ---- */
+/* ============================================================
+   GENERACIÓN DE NÚMERO DE COTIZACIÓN
+   ============================================================ */
 
 async function generarNumeroCotizacion() {
   const cotizaciones = await dbGetAll(STORES.cotizaciones);
@@ -156,7 +278,9 @@ async function generarNumeroCotizacion() {
   return `COT-${anio}-${String(siguiente).padStart(4, '0')}`;
 }
 
-/* ---- Clientes ---- */
+/* ============================================================
+   CLIENTES
+   ============================================================ */
 
 async function obtenerClientes() {
   return dbGetAll(STORES.clientes);
@@ -187,7 +311,9 @@ async function buscarClientes(termino) {
   );
 }
 
-/* ---- Productos ---- */
+/* ============================================================
+   PRODUCTOS
+   ============================================================ */
 
 async function obtenerProductos() {
   return dbGetAll(STORES.productos);
@@ -219,7 +345,9 @@ async function buscarProductos(termino) {
   );
 }
 
-/* ---- Cotizaciones ---- */
+/* ============================================================
+   COTIZACIONES
+   ============================================================ */
 
 async function obtenerCotizaciones() {
   return dbGetAll(STORES.cotizaciones);
@@ -236,7 +364,6 @@ async function guardarCotizacion(cotizacion) {
 }
 
 async function eliminarCotizacion(id) {
-  // Eliminar también el detalle
   const detalles = await dbGetAll(STORES.detalleCotizacion);
   for (const d of detalles) {
     if (d.cotizacionId === id) {
@@ -270,7 +397,9 @@ async function eliminarDetallesCotizacion(cotizacionId) {
   }
 }
 
-/* ---- Configuración de empresa ---- */
+/* ============================================================
+   CONFIGURACIÓN DE EMPRESA
+   ============================================================ */
 
 async function obtenerConfiguracion() {
   const configs = await dbGetAll(STORES.configuracionEmpresa);
@@ -293,7 +422,9 @@ async function guardarConfiguracion(config) {
   return dbPut(STORES.configuracionEmpresa, config);
 }
 
-/* ---- Duplicar cotización ---- */
+/* ============================================================
+   DUPLICAR COTIZACIÓN
+   ============================================================ */
 
 async function duplicarCotizacion(cotizacionId) {
   const original = await obtenerCotizacionCompleta(cotizacionId);
@@ -320,7 +451,9 @@ async function duplicarCotizacion(cotizacionId) {
   return nuevaCotizacion;
 }
 
-/* ---- Estadísticas del dashboard ---- */
+/* ============================================================
+   ESTADÍSTICAS DEL DASHBOARD
+   ============================================================ */
 
 async function obtenerEstadisticas() {
   const cotizaciones = await obtenerCotizacionesModule();
@@ -329,15 +462,7 @@ async function obtenerEstadisticas() {
   let montoTotalCotizado = 0, montoTotalAprobado = 0;
 
   for (const c of cotizaciones) {
-    const subtotal = c.subtotal || 0;
-    const descuento = c.descuento || 0;
-    const impuesto = c.impuesto || 0;
-    const manoObra = c.manoObra || 0;
-    const transporte = c.transporte || 0;
-    const materiales = c.materialesAdicionales || 0;
-    const otros = c.otrosCostos || 0;
-    const total = subtotal - descuento + impuesto + manoObra + transporte + materiales + otros;
-
+    const total = c.total || 0;
     montoTotalCotizado += total;
 
     switch (c.estado) {
@@ -349,17 +474,7 @@ async function obtenerEstadisticas() {
     }
   }
 
-  return {
-    totalCreadas,
-    pendientes,
-    aprobadas,
-    rechazadas,
-    borradores,
-    vencidas,
-    montoTotalCotizado,
-    montoTotalAprobado,
-  };
+  return { totalCreadas, pendientes, aprobadas, rechazadas, borradores, vencidas, montoTotalCotizado, montoTotalAprobado };
 }
 
-// Alias para evitar conflicto de nombres
 const obtenerCotizacionesModule = obtenerCotizaciones;

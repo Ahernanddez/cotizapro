@@ -978,10 +978,64 @@ async function guardarConfig() {
   toast('Configuración guardada', 'success');
 }
 
+/* ============ AUTENTICACIÓN CON GOOGLE ============ */
+
+async function handleSignIn() {
+  try {
+    toast('Conectando con Google Drive...', 'info');
+    await iniciarSesion();
+    await inicializarDrive();
+    actualizarUIAuth(true);
+    toast('Conectado exitosamente a Google Drive', 'success');
+    navegar('dashboard');
+  } catch (e) {
+    console.error('Error de autenticación:', e);
+    toast('Error al conectar: ' + (e.message || 'Verifica tu conexión'), 'error');
+  }
+}
+
+function handleSignOut() {
+  cerrarSesion();
+  actualizarUIAuth(false);
+  toast('Sesión cerrada', 'info');
+  navegar('dashboard');
+}
+
+function actualizarUIAuth(authenticated) {
+  const signInBtn = $('#btnGoogleSignIn');
+  const signOutBtn = $('#btnGoogleSignOut');
+  const userEmail = $('#userEmail');
+  const authRequired = $('#authRequired');
+  const configContent = $('#configContent');
+
+  if (authenticated) {
+    if (signInBtn) signInBtn.style.display = 'none';
+    if (signOutBtn) signOutBtn.style.display = '';
+    if (userEmail) { userEmail.style.display = ''; userEmail.textContent = '✅ Conectado a Drive'; }
+    if (authRequired) authRequired.style.display = 'none';
+    if (configContent) configContent.style.display = '';
+  } else {
+    if (signInBtn) signInBtn.style.display = '';
+    if (signOutBtn) signOutBtn.style.display = 'none';
+    if (userEmail) userEmail.style.display = 'none';
+    if (authRequired) authRequired.style.display = '';
+    if (configContent) configContent.style.display = 'none';
+  }
+}
+
 /* ============ INICIALIZACIÓN ============ */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Inicializar base de datos
-  await abrirBD();
+  // Verificar si ya hay sesión activa (token en memoria)
+  if (estaAutenticado()) {
+    try {
+      await inicializarDrive();
+      actualizarUIAuth(true);
+    } catch (e) {
+      actualizarUIAuth(false);
+    }
+  } else {
+    actualizarUIAuth(false);
+  }
   navegar('dashboard');
 });
