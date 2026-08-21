@@ -807,7 +807,7 @@ async function seleccionarProducto(productoId, index) {
   cotizacionDetalles[index].nombre = prod.nombre;
   cotizacionDetalles[index].descripcion = prod.descripcion || prod.nombre;
   cotizacionDetalles[index].precioUnitario = prod.precioVenta || 0;
-  cotizacionDetalles[index].precioCompra = prod.precioCompra || 0;
+  cotizacionDetalles[index].precioCompra = prod.precioCompra || prod.precioVenta || 0;
   cotizacionDetalles[index].margen = 0;
 
   cerrarSeleccionarProducto();
