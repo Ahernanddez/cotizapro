@@ -185,6 +185,7 @@ async function leerArchivoContenido(fid){const r=await fetch(API_BASE+'/files/'+
 async function escribirArchivoContenido(fid,d){await fetch(UPLOAD_BASE+'/files/'+fid+'?uploadType=media',{method:'PATCH',headers:{'Authorization':'Bearer '+gAccessToken,'Content-Type':'application/json'},body:JSON.stringify(d)})}
 async function crearArchivo(n,p,d){const form=new FormData();form.append('metadata',new Blob([JSON.stringify({name:n,parents:[p]})],{type:'application/json'}));form.append('file',new Blob([JSON.stringify(d)],{type:'application/json'}));const r=await fetch(UPLOAD_BASE+'/files?uploadType=multipart',{method:'POST',headers:{'Authorization':'Bearer '+gAccessToken},body:form});return r.json()}
 async function inicializarDrive(){if(!estaAutenticado())throw new Error('No autenticado con Google');gFolderId=await buscarOCrearCarpeta(DRIVE_FOLDER_NAME);for(const[s,f]of Object.entries(FILE_NAMES)){let fid=await buscarArchivo(f,gFolderId);if(!fid){const file=await crearArchivo(f,gFolderId,[]);fid=file.id}gFileIds[s]=fid;gDataCache[s]=await leerArchivoContenido(fid)}gReady=true}
+async function recargarDatos(){if(!estaAutenticado())throw new Error('No autenticado con Google');gReady=false;gFolderId=null;gFileIds={};gDataCache={};await inicializarDrive();return true}
 async function asegurarListo(){if(!gReady)await inicializarDrive()}
 async function dbGetAll(s){await asegurarListo();return[...(gDataCache[s]||[])]}
 async function dbGet(s,id){await asegurarListo();return(gDataCache[s]||[]).find(i=>i.id===id)||null}
