@@ -240,7 +240,7 @@ function cerrarModalCliente() {
 }
 
 async function editarCliente(id) {
-  const cliente = await dbGet(STORES.clientes, id);
+  const cliente = await dbGet(SHEETS.clientes, id);
   if (!cliente) return;
   clienteEditandoId = id;
   $('#modalClienteTitle').textContent = '👤 Editar Cliente';
@@ -381,7 +381,7 @@ function cerrarModalProducto() {
 }
 
 async function editarProducto(id) {
-  const prod = await dbGet(STORES.productos, id);
+  const prod = await dbGet(SHEETS.productos, id);
   if (!prod) return;
   productoEditandoId = id;
   $('#modalProductoTitle').textContent = '📦 Editar Producto';
@@ -798,7 +798,7 @@ async function renderSeleccionarProducto() {
 }
 
 async function seleccionarProducto(productoId, index) {
-  const prod = await dbGet(STORES.productos, productoId);
+  const prod = await dbGet(SHEETS.productos, productoId);
   if (!prod) return;
 
   cotizacionDetalles[index].productoId = prod.id;
@@ -1136,7 +1136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 async function enviarPorEmail(id) {
   const c = await obtenerCotizacionCompleta(id);
   if (!c) { toast('Cotización no encontrada', 'error'); return; }
-  const cl = c.clienteId ? await dbGet(STORES.clientes, c.clienteId) : null;
+  const cl = c.clienteId ? await dbGet(SHEETS.clientes, c.clienteId) : null;
   const cfg = await obtenerConfiguracion();
   let body = `Estimado/a ${cl ? cl.nombre : 'Cliente'},\n\n`;
   body += `Le adjuntamos la cotización ${c.numero}.\n\n`;
@@ -1155,7 +1155,7 @@ async function enviarPorEmail(id) {
 let clienteSeleccionadoId = null;
 async function verPortfolioCliente(clienteId) {
   clienteSeleccionadoId = clienteId;
-  const cl = await dbGet(STORES.clientes, clienteId);
+  const cl = await dbGet(SHEETS.clientes, clienteId);
   if (!cl) return;
   const cs = await obtenerCotizaciones();
   const misCotizaciones = cs.filter(c => c.clienteId === clienteId);
