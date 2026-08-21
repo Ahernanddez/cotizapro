@@ -25,11 +25,11 @@ const FILE_NAMES = {
 };
 
 /* ---- Estado global ---- */
-let gAccessToken = null;
+let gAccessToken = sessionStorage.getItem('cotizapro_token') || null;
 let gFolderId = null;
 let gFileIds = {};
 let gDataCache = {};
-let gAuthenticated = false;
+let gAuthenticated = !!gAccessToken;
 let gReady = false;
 
 const API_BASE = 'https://www.googleapis.com/drive/v3';
@@ -62,6 +62,7 @@ async function iniciarSesion() {
       callback: (resp) => {
         gAccessToken = resp.access_token;
         gAuthenticated = true;
+        sessionStorage.setItem('cotizapro_token', resp.access_token);
         resolve(resp);
       },
       error_callback: (err) => reject(err),
@@ -79,11 +80,22 @@ function cerrarSesion() {
     gFolderId = null;
     gFileIds = {};
     gDataCache = {};
+    sessionStorage.removeItem('cotizapro_token');
   }
 }
 
 function estaAutenticado() {
   return gAuthenticated && !!gAccessToken;
+}
+
+async function recargarDatos() {
+  if (!estaAutenticado()) throw new Error('No autenticado con Google');
+  gReady = false;
+  gFolderId = null;
+  gFileIds = {};
+  gDataCache = {};
+  await inicializarDrive();
+  return true;
 }
 
 /* ============================================================

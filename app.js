@@ -995,6 +995,7 @@ async function handleSignIn() {
     await iniciarSesion();
     await inicializarDrive();
     actualizarUIAuth(true);
+    await seedProductosEjemplo();
     toast('Conectado exitosamente a Google Drive', 'success');
     navegar('dashboard');
   } catch (e) {
@@ -1010,22 +1011,37 @@ function handleSignOut() {
   navegar('dashboard');
 }
 
+async function handleRefresh() {
+  try {
+    toast('Recargando datos...', 'info');
+    await recargarDatos();
+    await seedProductosEjemplo();
+    navegar(currentView);
+    toast('Datos actualizados', 'success');
+  } catch (e) {
+    toast('Error al recargar: ' + (e.message || ''), 'error');
+  }
+}
+
 function actualizarUIAuth(authenticated) {
   const signInBtn = $('#btnGoogleSignIn');
   const signOutBtn = $('#btnGoogleSignOut');
   const userEmail = $('#userEmail');
   const authRequired = $('#authRequired');
   const configContent = $('#configContent');
+  const refreshBtn = $('#btnRefresh');
 
   if (authenticated) {
     if (signInBtn) signInBtn.style.display = 'none';
     if (signOutBtn) signOutBtn.style.display = '';
+    if (refreshBtn) refreshBtn.style.display = '';
     if (userEmail) { userEmail.style.display = ''; userEmail.textContent = '✅ Conectado a Drive'; }
     if (authRequired) authRequired.style.display = 'none';
     if (configContent) configContent.style.display = '';
   } else {
     if (signInBtn) signInBtn.style.display = '';
     if (signOutBtn) signOutBtn.style.display = 'none';
+    if (refreshBtn) refreshBtn.style.display = 'none';
     if (userEmail) userEmail.style.display = 'none';
     if (authRequired) authRequired.style.display = '';
     if (configContent) configContent.style.display = 'none';
@@ -1050,13 +1066,16 @@ async function seedProductosEjemplo() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Verificar si ya hay sesión activa (token en memoria)
   if (estaAutenticado()) {
     try {
       await inicializarDrive();
       actualizarUIAuth(true);
       await seedProductosEjemplo();
+      toast('Sesión restaurada', 'success');
     } catch (e) {
+      sessionStorage.removeItem('cotizapro_token');
+      gAccessToken = null;
+      gAuthenticated = false;
       actualizarUIAuth(false);
     }
   } else {
