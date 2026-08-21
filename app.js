@@ -512,7 +512,6 @@ async function renderCotizaciones() {
       <td style="padding:10px 12px;border-bottom:1px solid var(--border-light)">
         <div style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="editarCotizacion('${c.id}')" title="Editar">✏️</button>
-          <button class="btn btn-sm" onclick="duplicarCotizacionAction('${c.id}')" title="Duplicar">📋</button>
           <button class="btn btn-sm" onclick="descargarPDF('${c.id}')" title="Descargar PDF">📥</button>
           <button class="btn btn-sm btn-danger" onclick="confirmarEliminarCotizacion('${c.id}', '${esc(c.numero)}')" title="Eliminar">🗑</button>
         </div>
