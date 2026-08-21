@@ -642,10 +642,12 @@ function agregarDetalle() {
     descripcion: '',
     cantidad: 1,
     precioUnitario: 0,
+    precioCompra: 0,
     descuentoPorcentaje: 0,
     descuento: 0,
     subtotal: 0,
     cargoMensual: 0,
+    margen: 0,
   };
   cotizacionDetalles.push(nuevo);
   renderDetalle();
@@ -671,6 +673,12 @@ function renderDetalle() {
     const descMonto = d.descuentoPorcentaje ? subtotal * (d.descuentoPorcentaje / 100) : 0;
     const sub = subtotal - descMonto;
     d.subtotal = sub;
+
+    const precioCompra = d.precioCompra || 0;
+    if (!d.margen && precioCompra > 0 && d.precioUnitario > 0) {
+      d.margen = Math.round(((d.precioUnitario - precioCompra) / precioCompra) * 100);
+    }
+    const margen = d.margen || 0;
 
     html += `<tr>
       <td>
@@ -698,6 +706,10 @@ function renderDetalle() {
         <input type="number" min="0" step="0.01" value="${d.cargoMensual || 0}" style="text-align:right"
           oninput="actualizarDetalle(${i}, 'cargoMensual', parseFloat(this.value)||0)">
       </td>
+      <td>
+        <input type="number" min="0" max="500" step="1" value="${margen}" style="text-align:center"
+          oninput="aplicarMargen(${i}, parseFloat(this.value)||0)">
+      </td>
       <td style="text-align:center">
         <button class="btn btn-sm btn-danger" onclick="eliminarDetalle(${i})" title="Eliminar">✕</button>
       </td>
@@ -710,6 +722,16 @@ function renderDetalle() {
 
 function actualizarDetalle(index, campo, valor) {
   cotizacionDetalles[index][campo] = valor;
+  renderDetalle();
+}
+
+function aplicarMargen(index, margen) {
+  const d = cotizacionDetalles[index];
+  d.margen = margen;
+  const pc = d.precioCompra || 0;
+  if (pc > 0) {
+    d.precioUnitario = Math.round(pc * (1 + margen / 100) * 100) / 100;
+  }
   renderDetalle();
 }
 
@@ -785,6 +807,8 @@ async function seleccionarProducto(productoId, index) {
   cotizacionDetalles[index].nombre = prod.nombre;
   cotizacionDetalles[index].descripcion = prod.descripcion || prod.nombre;
   cotizacionDetalles[index].precioUnitario = prod.precioVenta || 0;
+  cotizacionDetalles[index].precioCompra = prod.precioCompra || 0;
+  cotizacionDetalles[index].margen = 0;
 
   cerrarSeleccionarProducto();
   renderDetalle();
@@ -914,9 +938,11 @@ async function guardarCotizacionForm() {
       descripcion: d.descripcion,
       cantidad: d.cantidad,
       precioUnitario: d.precioUnitario,
+      precioCompra: d.precioCompra || 0,
       descuentoPorcentaje: d.descuentoPorcentaje,
       subtotal: d.subtotal,
       cargoMensual: d.cargoMensual || 0,
+      margen: d.margen || 0,
     };
     await guardarDetalleCotizacion(det);
   }

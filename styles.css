@@ -647,6 +647,7 @@ tbody tr:last-child td {
 .items-table .col-precio { width: 150px; text-align: right; }
 .items-table .col-descuento { width: 110px; text-align: center; }
 .items-table .col-subtotal { width: 150px; text-align: right; }
+.items-table .col-margen { width: 100px; text-align: center; }
 .items-table .col-acciones { width: 50px; text-align: center; }
 
 /* ============ Totals section ============ */
