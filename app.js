@@ -645,6 +645,7 @@ function agregarDetalle() {
     descuentoPorcentaje: 0,
     descuento: 0,
     subtotal: 0,
+    cargoMensual: 0,
   };
   cotizacionDetalles.push(nuevo);
   renderDetalle();
@@ -693,6 +694,10 @@ function renderDetalle() {
           oninput="actualizarDetalle(${i}, 'descuentoPorcentaje', parseFloat(this.value)||0)">
       </td>
       <td style="text-align:right;font-weight:600;white-space:nowrap">${formatMoney(sub)}</td>
+      <td>
+        <input type="number" min="0" step="0.01" value="${d.cargoMensual || 0}" style="text-align:right"
+          oninput="actualizarDetalle(${i}, 'cargoMensual', parseFloat(this.value)||0)">
+      </td>
       <td style="text-align:center">
         <button class="btn btn-sm btn-danger" onclick="eliminarDetalle(${i})" title="Eliminar">✕</button>
       </td>
@@ -794,6 +799,7 @@ async function calcularTotales() {
   let subtotal = 0;
   let descuentoTotal = 0;
   let impuestoTotal = 0;
+  let cargoMensualTotal = 0;
 
   cotizacionDetalles.forEach(d => {
     const precio = d.precioUnitario || 0;
@@ -807,6 +813,7 @@ async function calcularTotales() {
     subtotal += lineSubtotal;
     descuentoTotal += descMonto;
     impuestoTotal += lineImp;
+    cargoMensualTotal += (d.cargoMensual || 0) * cant;
   });
 
   const manoObra = parseFloat($('#fCotManoObra').value) || 0;
@@ -823,6 +830,7 @@ async function calcularTotales() {
   $('#totTransporte').textContent = formatMoney(transporte);
   $('#totMateriales').textContent = formatMoney(materiales);
   $('#totOtros').textContent = formatMoney(otros);
+  if ($('#totCargoMensual')) $('#totCargoMensual').textContent = formatMoney(cargoMensualTotal);
   $('#totGeneral').textContent = formatMoney(total);
 }
 
@@ -908,6 +916,7 @@ async function guardarCotizacionForm() {
       precioUnitario: d.precioUnitario,
       descuentoPorcentaje: d.descuentoPorcentaje,
       subtotal: d.subtotal,
+      cargoMensual: d.cargoMensual || 0,
     };
     await guardarDetalleCotizacion(det);
   }

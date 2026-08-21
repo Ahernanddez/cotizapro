@@ -153,19 +153,18 @@ async function generarPDF(cotizacionId) {
   // ---- Tabla de productos ----
   if (cotizacion.detalles && cotizacion.detalles.length > 0) {
     const tableData = cotizacion.detalles.map((d, i) => [
-      String(i + 1),
-      d.codigo || '',
       d.descripcion || d.nombre || '',
       String(d.cantidad || 0),
       formatNumber(d.precioUnitario),
-      d.descuentoPorcentaje ? `${d.descuentoPorcentaje}%` : (d.descuento ? formatNumber(d.descuento) : '-'),
+      d.descuentoPorcentaje ? `${d.descuentoPorcentaje}%` : '-',
       formatNumber(d.subtotal || ((d.precioUnitario || 0) * (d.cantidad || 0))),
+      formatNumber(d.cargoMensual || 0),
     ]);
 
     doc.autoTable({
       startY: y,
       margin: { left: marginX, right: marginX },
-      head: [['#', 'Código', 'Descripción', 'Cant.', 'P. Unitario', 'Desc.', 'Subtotal']],
+      head: [['Descripción', 'Cant.', 'P. Unitario', 'Desc.', 'Cargo Único', 'Cargo Mensual']],
       body: tableData,
       styles: {
         fontSize: 9,
@@ -184,13 +183,12 @@ async function generarPDF(cotizacionId) {
         fillColor: [248, 250, 252],
       },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 'auto' },
-        3: { cellWidth: 16, halign: 'center' },
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 16, halign: 'center' },
+        2: { cellWidth: 28, halign: 'right' },
+        3: { cellWidth: 20, halign: 'right' },
         4: { cellWidth: 28, halign: 'right' },
-        5: { cellWidth: 20, halign: 'center' },
-        6: { cellWidth: 28, halign: 'right' },
+        5: { cellWidth: 28, halign: 'right' },
       },
       didParseCell: function(data) {
         if (data.section === 'body') {
@@ -210,6 +208,12 @@ async function generarPDF(cotizacionId) {
   const transporte = cotizacion.transporte || 0;
   const materiales = cotizacion.materialesAdicionales || 0;
   const otros = cotizacion.otrosCostos || 0;
+  let cargoMensualTotal = 0;
+  if (cotizacion.detalles) {
+    cotizacion.detalles.forEach(d => {
+      cargoMensualTotal += (d.cargoMensual || 0) * (d.cantidad || 0);
+    });
+  }
   const total = cotizacion.total || (subtotal - descuento + impuestoMonto + manoObra + transporte + materiales + otros);
 
   const totalsX = pageW - marginX - 90;
@@ -228,6 +232,7 @@ async function generarPDF(cotizacionId) {
   if (transporte > 0) totales.push(['Transporte:', formatNumber(transporte)]);
   if (materiales > 0) totales.push(['Materiales Adic.:', formatNumber(materiales)]);
   if (otros > 0) totales.push(['Otros Costos:', formatNumber(otros)]);
+  if (cargoMensualTotal > 0) totales.push(['Cargo Mensual:', formatNumber(cargoMensualTotal)]);
 
   totales.forEach(([label, value]) => {
     doc.text(label, totalsX, y);
@@ -431,16 +436,23 @@ async function previsualizarPDF(cotizacionId) {
 
   // Tabla
   if (cotizacion.detalles && cotizacion.detalles.length > 0) {
-    const tableData = cotizacion.detalles.map((d, i) => [String(i + 1), d.codigo || '', d.descripcion || d.nombre || '', String(d.cantidad || 0), formatNumber(d.precioUnitario), d.descuentoPorcentaje ? `${d.descuentoPorcentaje}%` : (d.descuento ? formatNumber(d.descuento) : '-'), formatNumber(d.subtotal || ((d.precioUnitario || 0) * (d.cantidad || 0)))]);
+    const tableData = cotizacion.detalles.map((d, i) => [
+      d.descripcion || d.nombre || '',
+      String(d.cantidad || 0),
+      formatNumber(d.precioUnitario),
+      d.descuentoPorcentaje ? `${d.descuentoPorcentaje}%` : '-',
+      formatNumber(d.subtotal || ((d.precioUnitario || 0) * (d.cantidad || 0))),
+      formatNumber(d.cargoMensual || 0),
+    ]);
 
     doc.autoTable({
       startY: y, margin: { left: marginX, right: marginX },
-      head: [['#', 'Código', 'Descripción', 'Cant.', 'P. Unitario', 'Desc.', 'Subtotal']],
+      head: [['Descripción', 'Cant.', 'P. Unitario', 'Desc.', 'Cargo Único', 'Cargo Mensual']],
       body: tableData,
       styles: { fontSize: 9, cellPadding: 4, textColor: colores.dark, lineColor: [226, 232, 240], lineWidth: 0.3 },
       headStyles: { fillColor: colores.primary, textColor: colores.white, fontStyle: 'bold', fontSize: 8 },
       alternateRowStyles: { fillColor: [248, 250, 252] },
-      columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 22 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 16, halign: 'center' }, 4: { cellWidth: 28, halign: 'right' }, 5: { cellWidth: 20, halign: 'right' }, 6: { cellWidth: 28, halign: 'right' } },
+      columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: 16, halign: 'center' }, 2: { cellWidth: 28, halign: 'right' }, 3: { cellWidth: 20, halign: 'right' }, 4: { cellWidth: 28, halign: 'right' }, 5: { cellWidth: 28, halign: 'right' } },
       didParseCell: function(data) { if (data.section === 'body') data.cell.styles.fontSize = 8.5; },
     });
     y = doc.lastAutoTable.finalY + 6;
@@ -454,6 +466,12 @@ async function previsualizarPDF(cotizacionId) {
   const transporte = cotizacion.transporte || 0;
   const materiales = cotizacion.materialesAdicionales || 0;
   const otros = cotizacion.otrosCostos || 0;
+  let cargoMensualTotal2 = 0;
+  if (cotizacion.detalles) {
+    cotizacion.detalles.forEach(d => {
+      cargoMensualTotal2 += (d.cargoMensual || 0) * (d.cantidad || 0);
+    });
+  }
   const total = cotizacion.total || (subtotal - descuento + impuestoMonto + manoObra + transporte + materiales + otros);
 
   const totalsX = pageW - marginX - 90;
@@ -469,6 +487,7 @@ async function previsualizarPDF(cotizacionId) {
   if (transporte > 0) totales.push(['Transporte:', formatNumber(transporte)]);
   if (materiales > 0) totales.push(['Materiales Adic.:', formatNumber(materiales)]);
   if (otros > 0) totales.push(['Otros Costos:', formatNumber(otros)]);
+  if (cargoMensualTotal2 > 0) totales.push(['Cargo Mensual:', formatNumber(cargoMensualTotal2)]);
 
   totales.forEach(([l, v]) => { doc.text(l, totalsX, y); doc.text(v, valsX, y, { align: 'right' }); y += 5; });
   y += 2;

@@ -405,15 +405,15 @@ async function obtenerConfiguracion() {
   const configs = await dbGetAll(STORES.configuracionEmpresa);
   return configs[0] || {
     id: 'default',
-    nombreEmpresa: '',
-    rtnEmpresa: '',
-    direccionEmpresa: '',
-    telefonoEmpresa: '',
+    nombreEmpresa: 'TELESIS SA DE CV',
+    rtnEmpresa: '08019006039351',
+    direccionEmpresa: 'Col. Las Mesetas 18 Ave. 14-15 Calle. Casa #2, Bloque E, San Pedro Sula, Cortes.',
+    telefonoEmpresa: '2544-0110',
     emailEmpresa: '',
     logoEmpresa: '',
     porcentajeImpuesto: 15,
     diasVigencia: 30,
-    observacionesDefault: 'Esta cotización tiene una vigencia de 30 días a partir de su fecha de emisión.\nLos precios están sujetos a cambios sin previo aviso.\nSe requiere un anticipo del 50% para proceder con el trabajo.',
+    observacionesDefault: '1. Los precios ofertados tienen una validez de 30 días.\n2. Los precios son expresados en Dólares de los Estados Unidos de América.',
   };
 }
 
