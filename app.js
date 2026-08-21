@@ -1034,12 +1034,28 @@ function actualizarUIAuth(authenticated) {
 
 /* ============ INICIALIZACIÓN ============ */
 
+async function seedProductosEjemplo() {
+  const ps = await obtenerProductos();
+  if (ps.length > 0) return;
+  const ejemplos = [
+    { codigo: 'SW-001', categoria: 'Switch', nombre: 'Switch Cisco WS-C2960-24TT-L', marca: 'Cisco', modelo: 'WS-C2960-24TT-L', descripcion: 'Switch administrable 24 puertos Fast Ethernet + 2 puertos Gigabit Ethernet', precioCompra: 4500, precioVenta: 6800, costoInstalacion: 800, impuesto: 15, estado: 'activo' },
+    { codigo: 'AP-001', categoria: 'Access Point', nombre: 'Access Point Ubiquiti UniFi AP-AC-Pro', marca: 'Ubiquiti', modelo: 'AP-AC-Pro', descripcion: 'Access Point WiFi dual band 802.11ac, 3x3 MIMO, 1300 Mbps', precioCompra: 3200, precioVenta: 5200, costoInstalacion: 600, impuesto: 15, estado: 'activo' },
+    { codigo: 'CAM-001', categoria: 'Cámaras', nombre: 'Cámara IP Hikvision DS-2CD2143G2-I', marca: 'Hikvision', modelo: 'DS-2CD2143G2-I', descripcion: 'Cámara IP bullet 4MP, IR 30m, IP67, PoE', precioCompra: 2800, precioVenta: 4500, costoInstalacion: 700, impuesto: 15, estado: 'activo' },
+    { codigo: 'CBL-001', categoria: 'Cableado', nombre: 'Cable UTP Cat 6 (Rollo 305m)', marca: 'Belden', modelo: 'CAT6-305', descripcion: 'Cable UTP par trenzado Cat 6, 305 metros, halogen-free', precioCompra: 3800, precioVenta: 5800, costoInstalacion: 0, impuesto: 15, estado: 'activo' },
+    { codigo: 'SRV-001', categoria: 'Servicios', nombre: 'Instalación y Configuración de Red', marca: 'TELESIS', modelo: 'SRV-INST-001', descripcion: 'Servicio de instalación, configuración y puesta en marcha de red de datos completa', precioCompra: 0, precioVenta: 8500, costoInstalacion: 0, impuesto: 15, estado: 'activo' },
+  ];
+  for (const p of ejemplos) {
+    await guardarProducto(p);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   // Verificar si ya hay sesión activa (token en memoria)
   if (estaAutenticado()) {
     try {
       await inicializarDrive();
       actualizarUIAuth(true);
+      await seedProductosEjemplo();
     } catch (e) {
       actualizarUIAuth(false);
     }
