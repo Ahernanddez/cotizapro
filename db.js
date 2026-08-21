@@ -170,18 +170,17 @@ async function escribirSheet(nombreHoja, data) {
     })
   );
 
-  // Primero borrar todo excepto encabezados
-  await apiFetch(`${SHEETS_API}/${gSpreadsheetId}/values:clear`, {
-    method: 'POST',
-    body: JSON.stringify({ range: `${nombreHoja}!A:Z` })
-  });
+  const maxCol = String.fromCharCode(64 + headers.length);
+  const values = [headers, ...rows];
 
-  // Escribir encabezados + datos
-  if (rows.length > 0) {
-    await apiFetch(`${SHEETS_API}/${gSpreadsheetId}/values/${nombreHoja}!A1?valueInputOption=USER_ENTERED`, {
+  try {
+    await apiFetch(`${SHEETS_API}/${gSpreadsheetId}/values/${nombreHoja}!A1:${maxCol}1000?valueInputOption=USER_ENTERED&insertDataOption=OVERWRITE`, {
       method: 'PUT',
-      body: JSON.stringify({ values: [headers, ...rows] })
+      body: JSON.stringify({ values })
     });
+  } catch (e) {
+    console.error('Error escribiendo en', nombreHoja, e);
+    throw e;
   }
 }
 
@@ -235,7 +234,11 @@ async function dbPut(storeName, data) {
 
   const sheetName = SHEETS[storeName];
   if (sheetName) {
-    await escribirSheet(sheetName, gDataCache[storeName]);
+    try {
+      await escribirSheet(sheetName, gDataCache[storeName]);
+    } catch (e) {
+      console.error('Error guardando en Sheets:', storeName, e);
+    }
   }
   return data;
 }
@@ -246,7 +249,11 @@ async function dbDelete(storeName, id) {
 
   const sheetName = SHEETS[storeName];
   if (sheetName) {
-    await escribirSheet(sheetName, gDataCache[storeName]);
+    try {
+      await escribirSheet(sheetName, gDataCache[storeName]);
+    } catch (e) {
+      console.error('Error eliminando en Sheets:', storeName, e);
+    }
   }
 }
 
@@ -449,3 +456,77 @@ async function obtenerEstadisticas() {
 }
 
 const obtenerCotizacionesModule = obtenerCotizaciones;
+
+/* ============ MIGRACIÓN DE DATOS JSON ============ */
+
+async function migrarDatosJSON(jsonData) {
+  await asegurarListo();
+  let migrados = { clientes: 0, productos: 0, cotizaciones: 0, detalles: 0, configuracion: 0 };
+
+  // Migrar clientes
+  if (jsonData.clientes && Array.isArray(jsonData.clientes)) {
+    for (const c of jsonData.clientes) {
+      const existente = (gDataCache['clientes'] || []).find(x => x.id === c.id);
+      if (!existente) {
+        gDataCache['clientes'] = gDataCache['clientes'] || [];
+        gDataCache['clientes'].push(c);
+        migrados.clientes++;
+      }
+    }
+    if (migrados.clientes > 0) await escribirSheet('Clientes', gDataCache['clientes']);
+  }
+
+  // Migrar productos
+  if (jsonData.productos && Array.isArray(jsonData.productos)) {
+    for (const p of jsonData.productos) {
+      const existente = (gDataCache['productos'] || []).find(x => x.id === p.id);
+      if (!existente) {
+        gDataCache['productos'] = gDataCache['productos'] || [];
+        gDataCache['productos'].push(p);
+        migrados.productos++;
+      }
+    }
+    if (migrados.productos > 0) await escribirSheet('Productos', gDataCache['productos']);
+  }
+
+  // Migrar configuración
+  if (jsonData.configuracion && Array.isArray(jsonData.configuracion)) {
+    for (const cfg of jsonData.configuracion) {
+      const existente = (gDataCache['configuracionEmpresa'] || []).find(x => x.id === cfg.id);
+      if (!existente) {
+        gDataCache['configuracionEmpresa'] = gDataCache['configuracionEmpresa'] || [];
+        gDataCache['configuracionEmpresa'].push(cfg);
+        migrados.configuracion++;
+      }
+    }
+    if (migrados.configuracion > 0) await escribirSheet('Configuracion', gDataCache['configuracionEmpresa']);
+  }
+
+  // Migrar cotizaciones
+  if (jsonData.cotizaciones && Array.isArray(jsonData.cotizaciones)) {
+    for (const c of jsonData.cotizaciones) {
+      const existente = (gDataCache['cotizaciones'] || []).find(x => x.id === c.id);
+      if (!existente) {
+        gDataCache['cotizaciones'] = gDataCache['cotizaciones'] || [];
+        gDataCache['cotizaciones'].push(c);
+        migrados.cotizaciones++;
+      }
+    }
+    if (migrados.cotizaciones > 0) await escribirSheet('Cotizaciones', gDataCache['cotizaciones']);
+  }
+
+  // Migrar detalles
+  if (jsonData.detalleCotizacion && Array.isArray(jsonData.detalleCotizacion)) {
+    for (const d of jsonData.detalleCotizacion) {
+      const existente = (gDataCache['detalleCotizacion'] || []).find(x => x.id === d.id);
+      if (!existente) {
+        gDataCache['detalleCotizacion'] = gDataCache['detalleCotizacion'] || [];
+        gDataCache['detalleCotizacion'].push(d);
+        migrados.detalles++;
+      }
+    }
+    if (migrados.detalles > 0) await escribirSheet('DetalleCotizacion', gDataCache['detalleCotizacion']);
+  }
+
+  return migrados;
+}

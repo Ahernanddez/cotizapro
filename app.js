@@ -1073,11 +1073,13 @@ function actualizarUIAuth(authenticated) {
   const authRequired = $('#authRequired');
   const configContent = $('#configContent');
   const refreshBtn = $('#btnRefresh');
+  const importBtn = $('#btnImport');
 
   if (authenticated) {
     if (signInBtn) signInBtn.style.display = 'none';
     if (signOutBtn) signOutBtn.style.display = '';
     if (refreshBtn) refreshBtn.style.display = '';
+    if (importBtn) importBtn.style.display = '';
     if (userEmail) { userEmail.style.display = ''; userEmail.textContent = '✅ Conectado a Drive'; }
     if (authRequired) authRequired.style.display = 'none';
     if (configContent) configContent.style.display = '';
@@ -1085,6 +1087,7 @@ function actualizarUIAuth(authenticated) {
     if (signInBtn) signInBtn.style.display = '';
     if (signOutBtn) signOutBtn.style.display = 'none';
     if (refreshBtn) refreshBtn.style.display = 'none';
+    if (importBtn) importBtn.style.display = 'none';
     if (userEmail) userEmail.style.display = 'none';
     if (authRequired) authRequired.style.display = '';
     if (configContent) configContent.style.display = 'none';

@@ -14,7 +14,7 @@ async function generarPDF(cotizacionId) {
   // Obtener datos
   const cotizacion = await obtenerCotizacionCompleta(cotizacionId);
   const config = await obtenerConfiguracion();
-  const cliente = cotizacion.clienteId ? await dbGet(STORES.clientes, cotizacion.clienteId) : null;
+  const cliente = cotizacion.clienteId ? await dbGet('clientes', cotizacion.clienteId) : null;
 
   const colores = {
     primary: [30, 64, 175],
@@ -352,7 +352,7 @@ async function previsualizarPDF(cotizacionId) {
 
   const cotizacion = await obtenerCotizacionCompleta(cotizacionId);
   const config = await obtenerConfiguracion();
-  const cliente = cotizacion.clienteId ? await dbGet(STORES.clientes, cotizacion.clienteId) : null;
+  const cliente = cotizacion.clienteId ? await dbGet('clientes', cotizacion.clienteId) : null;
 
   const colores = {
     primary: [30, 64, 175],
