@@ -1013,6 +1013,24 @@ async function guardarConfig() {
   toast('Configuración guardada', 'success');
 }
 
+/* ============ TEMA OSCURO ============ */
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cotizapro_theme', next);
+  $('#btnThemeToggle').textContent = next === 'dark' ? '☀️' : '🌙';
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem('cotizapro_theme');
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    if ($('#btnThemeToggle')) $('#btnThemeToggle').textContent = saved === 'dark' ? '☀️' : '🌙';
+  }
+}
+
 /* ============ AUTENTICACIÓN CON GOOGLE ============ */
 
 async function handleSignIn() {
@@ -1091,6 +1109,7 @@ async function seedProductosEjemplo() {
   }
 }
 
+loadTheme();
 document.addEventListener('DOMContentLoaded', async () => {
   if (estaAutenticado()) {
     try {
