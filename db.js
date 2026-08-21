@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* ---- Configuración ---- */
-const GOOGLE_CLIENT_ID = '331783643231-751s47oie5ff4cjv5g752entdg1gjinn.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '499971275123-ai582md3haki95d9a71qki7iskj1nvab.apps.googleusercontent.com';
 const DRIVE_FOLDER_NAME = 'CotizaPro_Data';
 const DRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
