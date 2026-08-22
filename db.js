@@ -179,11 +179,16 @@ async function escribirSheet(nombreHoja, data) {
     })
   );
 
-  const maxCol = String.fromCharCode(64 + headers.length);
+  const numCols = headers.length;
+  const numRows = rows.length + 1;
+  const maxCol = String.fromCharCode(64 + numCols);
+  const range = `${nombreHoja}!A1:${maxCol}${numRows}`;
   const values = [headers, ...rows];
 
+  console.log('Escribiendo en', nombreHoja, ':', rows.length, 'filas,', range);
+
   try {
-    await apiFetch(`${SHEETS_API}/${gSpreadsheetId}/values/${nombreHoja}!A1:${maxCol}1000?valueInputOption=USER_ENTERED`, {
+    await apiFetch(`${SHEETS_API}/${gSpreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
       method: 'PUT',
       body: JSON.stringify({ values })
     });
