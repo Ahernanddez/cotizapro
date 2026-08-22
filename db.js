@@ -1,11 +1,10 @@
 /* ============================================================
    CotizaPro — Base de datos con Google Sheets
    Todos los datos se guardan en una hoja de cálculo compartida.
-   Solo usa Google Sheets API (sin Google Drive API).
    ============================================================ */
 
 const GOOGLE_CLIENT_ID = '499971275123-ai582md3haki95d9a71qki7iskj1nvab.apps.googleusercontent.com';
-const SHEETS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+const SHEETS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
 const SPREADSHEET_NAME = 'CotizaPro_BaseDatos';
 
 const SHEETS = {
@@ -74,10 +73,9 @@ function cerrarSesion() {
     gAccessToken = null;
     gAuthenticated = false;
     gReady = false;
-    gSpreadsheetId = null;
     gDataCache = {};
     sessionStorage.removeItem('cotizapro_token');
-    localStorage.removeItem('cotizapro_sheet_id');
+    // NO borrar cotizapro_sheet_id — se mantiene para reusar el mismo spreadsheet
   }
 }
 
@@ -104,19 +102,58 @@ async function apiFetch(url, options = {}) {
 /* ============ SPREADSHEET ============ */
 
 async function buscarOCrearSpreadsheet() {
-  // Si ya tenemos un ID guardado, intentar usarlo
+  // 1. Si ya tenemos un ID guardado, intentar usarlo
   if (gSpreadsheetId) {
     try {
       await apiFetch(`${SHEETS_API}/${gSpreadsheetId}`);
       return gSpreadsheetId;
     } catch (e) {
-      // El spreadsheet ya no existe, crear uno nuevo
+      console.warn('Sheet ID guardado no válido, buscando por nombre...');
       gSpreadsheetId = null;
-      localStorage.removeItem('cotizapro_sheet_id');
     }
   }
 
-  // Crear nuevo spreadsheet con todas las hojas
+  // 2. Buscar spreadsheet existente por nombre usando Drive API (solo lectura)
+  try {
+    const searchUrl = 'https://www.googleapis.com/drive/v3/files?q=' +
+      encodeURIComponent(`mimeType='application/vnd.google-apps.spreadsheet' and name='${SPREADSHEET_NAME}' and trashed=false`) +
+      '&fields=files(id,name)';
+    const r = await fetch(searchUrl, {
+      headers: { 'Authorization': 'Bearer ' + gAccessToken }
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.files && d.files.length > 0) {
+        gSpreadsheetId = d.files[0].id;
+        localStorage.setItem('cotizapro_sheet_id', gSpreadsheetId);
+        // Verificar que tenga todas las hojas necesarias
+        const existingSheets = await apiFetch(`${SHEETS_API}/${gSpreadsheetId}`);
+        const existNames = (existingSheets.sheets || []).map(s => s.properties.title);
+        for (const [key, name] of Object.entries(SHEETS)) {
+          if (!existNames.includes(name)) {
+            await apiFetch(`${SHEETS_API}/${gSpreadsheetId}:batchUpdate`, {
+              method: 'POST',
+              body: JSON.stringify({ requests: [{ addSheet: { properties: { title: name } } }] })
+            });
+            const headers = SHEET_HEADERS[name];
+            if (headers) {
+              await apiFetch(`${SHEETS_API}/${gSpreadsheetId}/values/${name}!A1?valueInputOption=USER_ENTERED`, {
+                method: 'PUT',
+                body: JSON.stringify({ values: [headers] })
+              });
+            }
+          }
+        }
+        console.log('Spreadsheet encontrado por nombre:', gSpreadsheetId);
+        return gSpreadsheetId;
+      }
+    }
+  } catch (e) {
+    console.warn('Error buscando por nombre:', e);
+  }
+
+  // 3. No existe — crear nuevo spreadsheet con todas las hojas
+  console.log('Creando nuevo spreadsheet...');
   const sheetNames = Object.values(SHEETS);
   const sheets = sheetNames.map((name, i) => ({
     properties: { title: name, index: i }
@@ -203,7 +240,6 @@ async function escribirSheet(nombreHoja, data) {
 async function inicializarSheets() {
   if (!estaAutenticado()) throw new Error('No autenticado con Google');
   gSpreadsheetId = await buscarOCrearSpreadsheet();
-
   for (const [store, name] of Object.entries(SHEETS)) {
     gDataCache[store] = await leerSheet(name);
   }
@@ -237,30 +273,28 @@ async function dbGet(storeName, id) {
 async function dbPut(storeName, data) {
   await asegurarListo();
   if (!gDataCache[storeName]) gDataCache[storeName] = [];
-
   const idx = gDataCache[storeName].findIndex(item => item.id === data.id);
   if (idx >= 0) {
     gDataCache[storeName][idx] = data;
   } else {
     gDataCache[storeName].push(data);
   }
-
   const sheetName = SHEETS[storeName];
   if (sheetName) {
     try {
       await escribirSheet(sheetName, gDataCache[storeName]);
+      console.log('Guardado OK en', sheetName, '—', gDataCache[storeName].length, 'registros');
     } catch (e) {
       console.error('Error guardando en Sheets:', storeName, e);
+      if (typeof toast === 'function') toast('Error al guardar: ' + e.message, 'error');
     }
   }
-
   return data;
 }
 
 async function dbDelete(storeName, id) {
   await asegurarListo();
   gDataCache[storeName] = (gDataCache[storeName] || []).filter(item => item.id !== id);
-
   const sheetName = SHEETS[storeName];
   if (sheetName) {
     try {
@@ -271,7 +305,7 @@ async function dbDelete(storeName, id) {
   }
 }
 
-/* ============ HELPERS ============ */
+/* ============ UTILS ============ */
 
 function generarId() {
   return crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -301,3 +335,79 @@ function formatearFecha(i) {
 function formatMoney(n) {
   return new Intl.NumberFormat('es-HN', { style: 'currency', currency: 'HNL', minimumFractionDigits: 2 }).format(n || 0);
 }
+
+function formatNumber(n) {
+  return new Intl.NumberFormat('es-HN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+}
+
+async function generarNumeroCotizacion() {
+  const cs = await dbGetAll('cotizaciones');
+  const anio = new Date().getFullYear();
+  const existentes = cs.filter(c => c.numero && c.numero.startsWith('COT-' + anio + '-'))
+    .map(c => { const n = parseInt(c.numero.split('-')[2], 10); return isNaN(n) ? 0 : n; });
+  const siguiente = existentes.length > 0 ? Math.max(...existentes) + 1 : 1;
+  return 'COT-' + anio + '-' + String(siguiente).padStart(4, '0');
+}
+
+async function obtenerClientes() { return dbGetAll('clientes'); }
+async function guardarCliente(c) {
+  if (!c.id) { c.id = generarId(); c.fechaRegistro = c.fechaRegistro || hoyISO(); }
+  c.fechaModificacion = hoyISO();
+  return dbPut('clientes', c);
+}
+async function eliminarCliente(id) { return dbDelete('clientes', id); }
+
+async function obtenerProductos() { return dbGetAll('productos'); }
+async function guardarProducto(p) {
+  if (!p.id) { p.id = generarId(); p.fechaRegistro = p.fechaRegistro || hoyISO(); }
+  p.fechaModificacion = hoyISO();
+  return dbPut('productos', p);
+}
+async function eliminarProducto(id) { return dbDelete('productos', id); }
+
+async function obtenerCotizaciones() { return dbGetAll('cotizaciones'); }
+async function guardarCotizacion(c) {
+  if (!c.id) { c.id = generarId(); c.fechaCreacion = c.fechaCreacion || hoyISO(); }
+  c.fechaModificacion = hoyISO();
+  return dbPut('cotizaciones', c);
+}
+async function eliminarCotizacion(id) { return dbDelete('cotizaciones', id); }
+async function obtenerCotizacionCompleta(id) {
+  const c = await dbGet('cotizaciones', id);
+  if (!c) return null;
+  const detalles = (await dbGetAll('detalleCotizacion')).filter(d => d.cotizacionId === id);
+  return { ...c, detalles };
+}
+
+async function obtenerDetallesCotizacion(cotizacionId) {
+  const all = await dbGetAll('detalleCotizacion');
+  return all.filter(d => d.cotizacionId === cotizacionId);
+}
+
+async function guardarDetalleCotizacion(d) {
+  if (!d.id) d.id = generarId();
+  return dbPut('detalleCotizacion', d);
+}
+
+async function eliminarDetallesCotizacion(cotizacionId) {
+  const all = await dbGetAll('detalleCotizacion');
+  const ids = all.filter(d => d.cotizacionId === cotizacionId).map(d => d.id);
+  for (const id of ids) { await dbDelete('detalleCotizacion', id); }
+}
+
+async function obtenerConfiguracion() {
+  const cfg = await dbGetAll('configuracionEmpresa');
+  return cfg.length > 0 ? cfg[0] : { id: 'default', nombreEmpresa: '', rtnEmpresa: '', direccionEmpresa: '', telefonoEmpresa: '', emailEmpresa: '', logoEmpresa: '', porcentajeImpuesto: 15, diasVigencia: 30, observacionesDefault: '' };
+}
+
+async function guardarConfiguracion(cfg) {
+  cfg.id = 'default';
+  return dbPut('configuracionEmpresa', cfg);
+}
+
+async function obtenerUsuarios() { return dbGetAll('usuarios'); }
+async function guardarUsuario(u) {
+  if (!u.id) u.id = generarId();
+  return dbPut('usuarios', u);
+}
+async function eliminarUsuario(id) { return dbDelete('usuarios', id); }
