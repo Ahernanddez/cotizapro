@@ -1034,12 +1034,12 @@ function loadTheme() {
 
 async function handleSignIn() {
   try {
-    toast('Conectando con Google Drive...', 'info');
+    toast('Conectando con Google Sheets...', 'info');
     await iniciarSesion();
-    await inicializarDrive();
+    await inicializarSheets();
     actualizarUIAuth(true);
-    await seedProductosEjemplo();
-    toast('Conectado exitosamente a Google Drive', 'success');
+    await seedDatosIniciales();
+    toast('Conectado a base de datos', 'success');
     navegar('dashboard');
   } catch (e) {
     console.error('Error de autenticación:', e);
@@ -1080,7 +1080,7 @@ function actualizarUIAuth(authenticated) {
     if (signOutBtn) signOutBtn.style.display = '';
     if (refreshBtn) refreshBtn.style.display = '';
     if (importBtn) importBtn.style.display = '';
-    if (userEmail) { userEmail.style.display = ''; userEmail.textContent = '✅ Conectado a Drive'; }
+    if (userEmail) { userEmail.style.display = ''; userEmail.textContent = '✅ Conectado a base de datos'; }
     if (authRequired) authRequired.style.display = 'none';
     if (configContent) configContent.style.display = '';
   } else {
@@ -1115,9 +1115,9 @@ loadTheme();
 document.addEventListener('DOMContentLoaded', async () => {
   if (estaAutenticado()) {
     try {
-      await inicializarDrive();
+      await inicializarSheets();
       actualizarUIAuth(true);
-      await seedProductosEjemplo();
+      await seedDatosIniciales();
       toast('Sesión restaurada', 'success');
     } catch (e) {
       sessionStorage.removeItem('cotizapro_token');
