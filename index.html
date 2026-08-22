@@ -303,7 +303,35 @@ function limpiarFirma(){if(firmaCtx){firmaCtx.clearRect(0,0,firmaCanvas.width,fi
 async function guardarFirma(){if(!firmaCanvas||!cotizacionEditandoId)return;const dataUrl=firmaCanvas.toDataURL('image/png');const c=await obtenerCotizacionCompleta(cotizacionEditandoId);if(c){c.firmaCliente=dataUrl;c.fechaFirma=hoyISO();await guardarCotizacion(c)}$('#modalFirma').hidden=true;toast('Firma guardada','success')}
 
 /* ---- WhatsApp Cotización ---- */
-async function enviarWhatsAppCotizacion(id){const c=await obtenerCotizacionCompleta(id);if(!c){toast('Cotización no encontrada','error');return}const cl=c.clienteId?await dbGet('clientes',c.clienteId):null;const cfg=await obtenerConfiguracion();let msg='📋 *Cotización '+c.numero+'*\n\n';msg+='📅 Fecha: '+formatearFecha(c.fechaCreacion)+'\n';msg+='📅 Vence: '+formatearFecha(c.fechaVencimiento)+'\n';if(cl){msg+='👤 Cliente: '+cl.nombre+'\n'}if(c.vendedor)msg+='🧑\u200d💼 Vendedor: '+c.vendedor+'\n';msg+='\n*Detalle:*\n';if(c.detalles){for(const d of c.detalles){msg+='• '+(d.descripcion||d.nombre||'')+(d.cantidad>1?' x'+d.cantidad:'')+' — '+formatMoney(d.subtotal)+'\n'}}msg+='\n💰 *TOTAL: '+formatMoney(c.total)+'*\n';if(cfg.nombreEmpresa)msg+='\n— '+cfg.nombreEmpresa+' —';const phone=cl&&cl.telefono?cl.telefono.replace(/[^0-9+]/g,''):'';window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');toast('Abriendo WhatsApp...','info')}
+async function enviarWhatsAppCotizacion(id){const c=await obtenerCotizacionCompleta(id);if(!c){toast('Cotizacion no encontrada','error');return}const cl=c.clienteId?await dbGet('clientes',c.clienteId):null;const cfg=await obtenerConfiguracion();let msg='Cotizacion '+c.numero+'
+
+';msg+='Fecha: '+formatearFecha(c.fechaCreacion)+'
+';msg+='Vence: '+formatearFecha(c.fechaVencimiento)+'
+';if(cl)msg+='Cliente: '+cl.nombre+'
+';if(c.vendedor)msg+='Vendedor: '+c.vendedor+'
+';msg='
+Detalle:
+';if(c.detalles){for(const d of c.detalles){msg+='- '+(d.descripcion||d.nombre||'')+(d.cantidad>1?' x'+d.cantidad:'')+' = '+formatMoney(d.subtotal)+'
+'}}msg+='
+TOTAL: '+formatMoney(c.total)+'
+';if(cfg.nombreEmpresa)msg+='
+-- '+cfg.nombreEmpresa+' --';const phone=cl&&cl.telefono?cl.telefono.replace(/[^0-9+]/g,''):'';window.open('https://wa.me/'+phone+'?text='+encodeURIComponent(msg),'_blank');toast('Abriendo WhatsApp...','info')}async function enviarPorEmail(id){try{const c=await obtenerCotizacionCompleta(id);if(!c){toast('Cotizacion no encontrada','error');return}const cl=c.clienteId?await dbGet('clientes',c.clienteId):null;const cfg=await obtenerConfiguracion();const to=cl&&cl.email?cl.email:'';const subject='Cotizacion '+c.numero+' - '+(cfg.nombreEmpresa||'CotizaPro');let body='Buenos dias,
+
+Adjunto la cotizacion '+c.numero+' para su revision.
+
+';body+='Fecha: '+formatearFecha(c.fechaCreacion)+'
+';body+='Vence: '+formatearFecha(c.fechaVencimiento)+'
+';if(cl)body+='Cliente: '+cl.nombre+'
+';body+='
+Detalle:
+';if(c.detalles){for(const d of c.detalles){body+='- '+(d.descripcion||d.nombre||'')+(d.cantidad>1?' x'+d.cantidad:'')+' = '+formatMoney(d.subtotal)+'
+'}}body+='
+TOTAL: '+formatMoney(c.total)+'
+';body+='
+Saludos cordiales,
+'+(c.vendedor||'')+'
+'+(cfg.nombreEmpresa||'')+'
+'+(cfg.telefonoEmpresa?'Tel: '+cfg.telefonoEmpresa:'');const mailto='mailto:'+(to||'')+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);window.open(mailto,'_blank');toast('Abriendo correo...','info')}catch(e){toast('Error: '+e.message,'error')}}
 
 /* ---- Theme ---- */function toggleTheme(){const current=document.documentElement.getAttribute('data-theme');const next=current==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',next);localStorage.setItem('cotizapro_theme',next);$('#btnThemeToggle').textContent=next==='dark'?'☀️':'🌙'}function loadTheme(){const saved=localStorage.getItem('cotizapro_theme');if(saved){document.documentElement.setAttribute('data-theme',saved);if($('#btnThemeToggle'))$('#btnThemeToggle').textContent=saved==='dark'?'☀️':'🌙'}}
 /* ---- Auth ---- */async function handleSignIn(){try{toast('Conectando con Google Sheets...','info');await iniciarSesion();await inicializarSheets();actualizarUIAuth(true);await seedDatosIniciales();toast('Conectado a Google Sheets','success');navegar('dashboard')}catch(e){console.error(e);toast('Error: '+(e.message||'Verifica tu conexión'),'error')}}function handleSignOut(){cerrarSesion();actualizarUIAuth(false);toast('Sesión cerrada','info');navegar('dashboard')}async function handleRefresh(){try{toast('Recargando datos...','info');await recargarDatos();await seedDatosIniciales();navegar(currentView);toast('Datos actualizados','success')}catch(e){toast('Error al recargar: '+(e.message||''),'error')}}function actualizarUIAuth(a){const si=$('#btnGoogleSignIn'),so=$('#btnGoogleSignOut'),ue=$('#userEmail'),ar=$('#authRequired'),cc=$('#configContent'),rf=$('#btnRefresh');if(a){if(si)si.style.display='none';if(so)so.style.display='';if(rf)rf.style.display='';if(ue){ue.style.display='';ue.textContent='✅ Conectado a base de datos'}if(ar)ar.style.display='none';if(cc)cc.style.display=''}else{if(si)si.style.display='';if(so)so.style.display='none';if(rf)rf.style.display='none';if(ue)ue.style.display='none';if(ar)ar.style.display='';if(cc)cc.style.display='none'}}
