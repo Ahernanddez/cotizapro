@@ -4,7 +4,7 @@
    ============================================================ */
 
 const GOOGLE_CLIENT_ID = '499971275123-ai582md3haki95d9a71qki7iskj1nvab.apps.googleusercontent.com';
-const SHEETS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
+const SHEETS_SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive';
 const SPREADSHEET_NAME = 'CotizaPro_BaseDatos';
 
 const SHEETS = {
@@ -80,6 +80,36 @@ function cerrarSesion() {
 }
 
 function estaAutenticado() { return gAuthenticated && !!gAccessToken; }
+
+async function obtenerEmailGoogle() {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { 'Authorization': 'Bearer ' + gAccessToken }
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.email || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function compartirSpreadsheet(email) {
+  if (!gSpreadsheetId || !email) return false;
+  try {
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${gSpreadsheetId}/permissions?sendNotificationEmail=false`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: email })
+    });
+    if (!r.ok) { console.error('Error compartiendo:', r.status); return false; }
+    console.log('Spreadsheet compartido con:', email);
+    return true;
+  } catch (e) {
+    console.error('Error compartiendo:', e);
+    return false;
+  }
+}
 
 /* ============ GOOGLE SHEETS API HELPERS ============ */
 
