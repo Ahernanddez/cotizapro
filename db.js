@@ -4,7 +4,7 @@
    ============================================================ */
 
 const GOOGLE_CLIENT_ID = '499971275123-ai582md3haki95d9a71qki7iskj1nvab.apps.googleusercontent.com';
-const DRIVE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const DRIVE_SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive';
 const SPREADSHEET_NAME = 'CotizaPro_BaseDatos';
 
 const SHEETS = {
