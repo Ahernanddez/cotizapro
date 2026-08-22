@@ -208,9 +208,7 @@ async function inicializarSheets() {
 async function recargarDatos() {
   if (!estaAutenticado()) throw new Error('No autenticado con Google');
   gReady = false;
-  gSpreadsheetId = null;
   gDataCache = {};
-  localStorage.removeItem('cotizapro_sheet_id');
   await inicializarSheets();
   return true;
 }
